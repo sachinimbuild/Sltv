@@ -21,7 +21,9 @@ import org.json.JSONObject
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "lankatv_prefs")
 
-class PreferencesRepository(private val context: Context) {
+class PreferencesRepository(private val dataStore: DataStore<Preferences>) {
+
+    constructor(context: Context) : this(context.dataStore)
 
     private object Keys {
         val FAVORITE_IDS = stringSetPreferencesKey("favorite_channel_ids")
@@ -33,7 +35,7 @@ class PreferencesRepository(private val context: Context) {
         val CUSTOM_CHANNELS_JSON = stringPreferencesKey("custom_channels_json")
     }
 
-    val userPreferences: Flow<UserPreferences> = context.dataStore.data.map { prefs ->
+    val userPreferences: Flow<UserPreferences> = dataStore.data.map { prefs ->
         val presetName = prefs[Keys.DATA_SAVER_PRESET] ?: DataSaverPreset.DATA_SAVER.name
         val preset = runCatching { DataSaverPreset.valueOf(presetName) }
             .getOrDefault(DataSaverPreset.DATA_SAVER)
@@ -50,7 +52,7 @@ class PreferencesRepository(private val context: Context) {
     }
 
     suspend fun toggleFavorite(channelId: String) {
-        context.dataStore.edit { prefs ->
+        dataStore.edit { prefs ->
             val current = prefs[Keys.FAVORITE_IDS]?.toMutableSet()
                 ?: mutableSetOf("rupavahini", "tv_derana", "ada_derana_24")
             if (channelId in current) current.remove(channelId) else current.add(channelId)
@@ -58,38 +60,50 @@ class PreferencesRepository(private val context: Context) {
         }
     }
 
+    suspend fun setFavoriteChannels(ids: Set<String>) {
+        dataStore.edit { prefs ->
+            prefs[Keys.FAVORITE_IDS] = ids
+        }
+    }
+
+    suspend fun clearFavorites() {
+        dataStore.edit { prefs ->
+            prefs[Keys.FAVORITE_IDS] = emptySet()
+        }
+    }
+
     suspend fun setDataSaverPreset(preset: DataSaverPreset) {
-        context.dataStore.edit { prefs ->
+        dataStore.edit { prefs ->
             prefs[Keys.DATA_SAVER_PRESET] = preset.name
         }
     }
 
     suspend fun setAllowMobileDataStreaming(allowed: Boolean) {
-        context.dataStore.edit { prefs ->
+        dataStore.edit { prefs ->
             prefs[Keys.ALLOW_MOBILE_DATA] = allowed
         }
     }
 
     suspend fun setWarnHdOnMobileData(warn: Boolean) {
-        context.dataStore.edit { prefs ->
+        dataStore.edit { prefs ->
             prefs[Keys.WARN_HD_MOBILE] = warn
         }
     }
 
     suspend fun setReverseBufferMinutes(minutes: Int) {
-        context.dataStore.edit { prefs ->
+        dataStore.edit { prefs ->
             prefs[Keys.BUFFER_MINUTES] = minutes.coerceIn(15, 60)
         }
     }
 
     suspend fun setLastChannelId(channelId: String) {
-        context.dataStore.edit { prefs ->
+        dataStore.edit { prefs ->
             prefs[Keys.LAST_CHANNEL_ID] = channelId
         }
     }
 
     suspend fun addCustomChannel(name: String, streamUrl: String, category: ChannelCategory, language: ChannelLanguage) {
-        context.dataStore.edit { prefs ->
+        dataStore.edit { prefs ->
             val existing = decodeCustomChannels(prefs[Keys.CUSTOM_CHANNELS_JSON]).toMutableList()
             val newChannel = TvChannel(
                 id = "custom_${System.currentTimeMillis()}",
@@ -109,7 +123,7 @@ class PreferencesRepository(private val context: Context) {
     }
 
     suspend fun removeCustomChannel(channelId: String) {
-        context.dataStore.edit { prefs ->
+        dataStore.edit { prefs ->
             val filtered = decodeCustomChannels(prefs[Keys.CUSTOM_CHANNELS_JSON])
                 .filterNot { it.id == channelId }
             prefs[Keys.CUSTOM_CHANNELS_JSON] = encodeCustomChannels(filtered)

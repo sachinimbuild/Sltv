@@ -31,6 +31,9 @@ import kotlinx.coroutines.launch
 data class MainUiState(
     val allChannels: List<TvChannel> = SriLankaChannelsCatalog.defaultChannels,
     val filteredChannels: List<TvChannel> = SriLankaChannelsCatalog.defaultChannels,
+    val favoriteChannels: List<TvChannel> = SriLankaChannelsCatalog.defaultChannels.filter {
+        it.id in setOf("rupavahini", "tv_derana", "ada_derana_24")
+    },
     val activeChannel: TvChannel? = SriLankaChannelsCatalog.defaultChannels.firstOrNull(),
     val selectedCategory: ChannelCategory = ChannelCategory.ALL,
     val selectedLanguage: ChannelLanguage = ChannelLanguage.ALL,
@@ -83,6 +86,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         FilterParams(cat, lang, favs, query)
     }
 
+    private data class CatalogBundle(
+        val all: List<TvChannel>,
+        val filtered: List<TvChannel>,
+        val favorites: List<TvChannel>,
+        val active: TvChannel?,
+    )
+
     private val catalogFlow = combine(
         _baseChannels,
         prefsRepo.userPreferences,
@@ -90,6 +100,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         filterFlow,
     ) { base, prefs, activeId, filter ->
         val merged = (prefs.customChannels + base).distinctBy { it.id }
+        val favorites = merged.filter { it.id in prefs.favoriteChannelIds }
         val filtered = merged.filter { ch ->
             val catOk = filter.category == ChannelCategory.ALL ||
                 (filter.category == ChannelCategory.CUSTOM && ch.isCustom) ||
@@ -103,7 +114,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             catOk && langOk && favOk && queryOk
         }
         val active = merged.firstOrNull { it.id == activeId } ?: merged.firstOrNull()
-        Triple(merged, filtered, active) to prefs
+        CatalogBundle(merged, filtered, favorites, active) to prefs
     }
 
     private val playerFlow = combine(
@@ -124,11 +135,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         combine(_isSyncing, _syncLabel, _colomboClock, _pendingHdWarning) { sync, lbl, clk, warn ->
             Quad(sync, lbl, clk, warn)
         },
-    ) { (triple, prefs), filter, pFlow, meta ->
+    ) { (bundle, prefs), filter, pFlow, meta ->
         MainUiState(
-            allChannels = triple.first,
-            filteredChannels = triple.second,
-            activeChannel = triple.third,
+            allChannels = bundle.all,
+            filteredChannels = bundle.filtered,
+            favoriteChannels = bundle.favorites,
+            activeChannel = bundle.active,
             selectedCategory = filter.category,
             selectedLanguage = filter.language,
             onlyFavorites = filter.onlyFavs,

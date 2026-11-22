@@ -323,6 +323,7 @@ fun LankaTvAppRoot(
                                     viewModel.selectChannel(channel)
                                     navigateTo(ROUTE_LIVE_TV)
                                 },
+                                onToggleFavorite = viewModel::toggleChannelFavorite,
                             )
                         }
 

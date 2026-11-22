@@ -26,6 +26,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.TvOff
@@ -60,6 +61,7 @@ import com.example.model.TvChannel
 import com.example.ui.components.LiveChannelCard
 import com.example.ui.components.LiveTvPlayerStage
 import com.example.ui.components.NetworkDataStatusPill
+import com.example.ui.components.QuickAccessFavoritesStrip
 import com.example.ui.components.QuickRewindStrip
 import com.example.ui.theme.AmberGoldTertiary
 import com.example.ui.theme.EmeraldContainer
@@ -169,6 +171,9 @@ fun LiveTvScreen(
                     )
                     ActiveChannelStatusDeck(
                         uiState = uiState,
+                        onToggleActiveFavorite = {
+                            uiState.activeChannel?.id?.let(onToggleFavorite)
+                        },
                         onSeekBackBy = onSeekBackBy,
                         onJumpToLive = onJumpToLive,
                     )
@@ -222,6 +227,9 @@ fun LiveTvScreen(
                 )
                 ActiveChannelStatusDeck(
                     uiState = uiState,
+                    onToggleActiveFavorite = {
+                        uiState.activeChannel?.id?.let(onToggleFavorite)
+                    },
                     onSeekBackBy = onSeekBackBy,
                     onJumpToLive = onJumpToLive,
                 )
@@ -346,10 +354,12 @@ private fun StudioTopBar(
 @Composable
 private fun ActiveChannelStatusDeck(
     uiState: MainUiState,
+    onToggleActiveFavorite: () -> Unit,
     onSeekBackBy: (Long) -> Unit,
     onJumpToLive: () -> Unit,
 ) {
     val active = uiState.activeChannel
+    val isActiveFavorite = active != null && active.id in uiState.preferences.favoriteChannelIds
     val currentShow = active?.currentProgramAtHour(uiState.colomboHour24)
     val nextShow = active?.nextProgramAtHour(uiState.colomboHour24)
 
@@ -386,21 +396,45 @@ private fun ActiveChannelStatusDeck(
                     )
                 }
 
-                Surface(
-                    color = EmeraldContainer,
-                    shape = RoundedCornerShape(8.dp),
-                    border = BorderStroke(1.dp, EmeraldSecondary.copy(alpha = 0.4f)),
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
-                    Text(
-                        text = if (uiState.bufferInfo.isProxyActive) {
-                            "1h DVR ${FormatUtils.formatDurationMmSs(uiState.bufferInfo.bufferedDurationMs)}"
-                        } else {
-                            "Direct Live"
-                        },
-                        style = MonoMetricStyle,
-                        color = if (uiState.bufferInfo.isProxyActive) EmeraldSecondary else AmberGoldTertiary,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                    )
+                    if (active != null) {
+                        IconButton(
+                            onClick = onToggleActiveFavorite,
+                            modifier = Modifier
+                                .minimumInteractiveComponentSize()
+                                .testTag("active_channel_favorite_button"),
+                        ) {
+                            Icon(
+                                imageVector = if (isActiveFavorite) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
+                                contentDescription = if (isActiveFavorite) {
+                                    "Remove ${active.name} from favorites"
+                                } else {
+                                    "Save ${active.name} to favorites"
+                                },
+                                tint = if (isActiveFavorite) SaffronPrimary else TextSecondary,
+                            )
+                        }
+                    }
+
+                    Surface(
+                        color = EmeraldContainer,
+                        shape = RoundedCornerShape(8.dp),
+                        border = BorderStroke(1.dp, EmeraldSecondary.copy(alpha = 0.4f)),
+                    ) {
+                        Text(
+                            text = if (uiState.bufferInfo.isProxyActive) {
+                                "1h DVR ${FormatUtils.formatDurationMmSs(uiState.bufferInfo.bufferedDurationMs)}"
+                            } else {
+                                "Direct Live"
+                            },
+                            style = MonoMetricStyle,
+                            color = if (uiState.bufferInfo.isProxyActive) EmeraldSecondary else AmberGoldTertiary,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        )
+                    }
                 }
             }
 
@@ -428,6 +462,13 @@ private fun ChannelDirectoryPanel(
         modifier = modifier,
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
+        QuickAccessFavoritesStrip(
+            favoriteChannels = uiState.favoriteChannels,
+            activeChannelId = uiState.activeChannel?.id,
+            onSelectChannel = onSelectChannel,
+            onRemoveFavorite = onToggleFavorite,
+        )
+
         OutlinedTextField(
             value = uiState.searchQuery,
             onValueChange = onSearchQueryChange,
@@ -481,7 +522,7 @@ private fun ChannelDirectoryPanel(
                             modifier = Modifier.size(14.dp),
                         )
                     },
-                    label = { Text("Favorites") },
+                    label = { Text("Favorites (${uiState.favoriteChannels.size})") },
                     modifier = Modifier.testTag("filter_favorites_chip"),
                     colors = FilterChipDefaults.filterChipColors(
                         containerColor = SlateContainer,

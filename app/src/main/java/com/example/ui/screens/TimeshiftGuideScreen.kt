@@ -42,6 +42,7 @@ import androidx.compose.ui.unit.dp
 import com.example.model.TvChannel
 import com.example.ui.components.ChannelLogoBadge
 import com.example.ui.components.LiveOrTimeshiftBadge
+import com.example.ui.components.QuickAccessFavoritesStrip
 import com.example.ui.theme.AmberGoldContainer
 import com.example.ui.theme.AmberGoldTertiary
 import com.example.ui.theme.EmeraldContainer
@@ -65,6 +66,7 @@ fun TimeshiftGuideScreen(
     onSeekBackBy: (Long) -> Unit,
     onJumpToLive: () -> Unit,
     onWatchChannel: (TvChannel) -> Unit,
+    onToggleFavorite: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val buffer = uiState.bufferInfo
@@ -274,6 +276,15 @@ fun TimeshiftGuideScreen(
                     }
                 }
             }
+        }
+
+        item {
+            QuickAccessFavoritesStrip(
+                favoriteChannels = uiState.favoriteChannels,
+                activeChannelId = uiState.activeChannel?.id,
+                onSelectChannel = onWatchChannel,
+                onRemoveFavorite = onToggleFavorite,
+            )
         }
 
         item {

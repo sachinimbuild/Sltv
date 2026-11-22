@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -22,6 +23,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -300,6 +303,142 @@ fun LiveChannelCard(
                     contentDescription = if (isFavorite) "Remove from favorites" else "Add to favorites",
                     tint = if (isFavorite) SaffronPrimary else TextMuted,
                 )
+            }
+        }
+    }
+}
+
+@Composable
+fun QuickAccessFavoritesStrip(
+    favoriteChannels: List<TvChannel>,
+    activeChannelId: String?,
+    onSelectChannel: (TvChannel) -> Unit,
+    onRemoveFavorite: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Favorite,
+                    contentDescription = null,
+                    tint = SaffronPrimary,
+                    modifier = Modifier.size(14.dp),
+                )
+                Text(
+                    text = "Quick Access Favorites",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = TextPrimary,
+                )
+            }
+            Text(
+                text = "${favoriteChannels.size} saved",
+                style = MonoMetricStyle,
+                color = TextMuted,
+            )
+        }
+
+        if (favoriteChannels.isEmpty()) {
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("favorites_empty_banner"),
+                color = SlateContainer,
+                shape = RoundedCornerShape(12.dp),
+                border = BorderStroke(1.dp, SlateBorder.copy(alpha = 0.7f)),
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.FavoriteBorder,
+                        contentDescription = null,
+                        tint = TextMuted,
+                        modifier = Modifier.size(16.dp),
+                    )
+                    Text(
+                        text = "Tap the heart on any Sri Lankan channel to pin it here for 1-tap switching.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = TextSecondary,
+                    )
+                }
+            }
+        } else {
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                contentPadding = PaddingValues(horizontal = 2.dp),
+                modifier = Modifier.testTag("quick_favorites_strip"),
+            ) {
+                items(favoriteChannels, key = { "fav_quick_${it.id}" }) { channel ->
+                    val isActive = channel.id == activeChannelId
+                    val accent = Color(channel.accentHex)
+                    Surface(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(14.dp))
+                            .clickable { onSelectChannel(channel) }
+                            .testTag("quick_fav_card_${channel.id}"),
+                        color = if (isActive) SaffronContainer.copy(alpha = 0.5f) else SlateContainer,
+                        shape = RoundedCornerShape(14.dp),
+                        border = BorderStroke(
+                            width = if (isActive) 1.5.dp else 1.dp,
+                            color = if (isActive) SaffronPrimary else SlateBorder,
+                        ),
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(start = 8.dp, end = 4.dp, top = 6.dp, bottom = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            ChannelLogoBadge(channel = channel, size = 32.dp)
+                            Column {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                ) {
+                                    Text(
+                                        text = channel.name,
+                                        style = MaterialTheme.typography.labelLarge,
+                                        color = TextPrimary,
+                                        maxLines = 1,
+                                    )
+                                    if (isActive) {
+                                        LiveEqualizerBars(color = accent)
+                                    }
+                                }
+                                Text(
+                                    text = channel.language.label,
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = TextMuted,
+                                )
+                            }
+                            IconButton(
+                                onClick = { onRemoveFavorite(channel.id) },
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .testTag("quick_fav_remove_${channel.id}"),
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.Close,
+                                    contentDescription = "Unpin ${channel.name} from favorites",
+                                    tint = TextMuted,
+                                    modifier = Modifier.size(14.dp),
+                                )
+                            }
+                        }
+                    }
+                }
             }
         }
     }
